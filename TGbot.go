@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/Syfaro/telegram-bot-api"
 	"log"
+	"time"
 )
 
 func telegramBot() {
