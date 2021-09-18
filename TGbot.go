@@ -3,14 +3,18 @@ package main
 import (
 	"fmt"
 	"github.com/Syfaro/telegram-bot-api"
-	"go/types"
 	"log"
 	"strings"
 )
 
-var myTickers []string//массив тикеров пользователя, который пользователь может редактировать
+type Users struct {
+	userID string
+	userSlices []string
+}
 
-var tickersMap = make(map[int]types.Slice) // мапа внутри которой я запоминаю слайсы с тикерами
+var myTickers []*Users//массив тикеров пользователя, который пользователь может редактировать
+
+var tickersMap = make(map[string][]*Users) // мапа внутри которой я запоминаю слайсы с тикерами
 
 var tickersSlice = []string{
 	"ONE",
@@ -46,37 +50,25 @@ func main(){
 
 
 		switch update.Message.Command() {
-			case "start":
-				reply = start(reply)
+		case "start":
+			reply = start(reply)
 
-			case "addticker":
-
-				reply = addTicker(text, reply)
-				tickersMap[update.Message.From.ID] = myTickers// я не реализовал это внутри функции,
-				myTickers = nil								 //т.к. не могу передать update.Message.From.ID в неё
-				
-				fmt.Println(tickersMap)//просто для удобства проверки содержимого
-				
-				
-				/*идея заключается в том, чтобы запомнить тикеры myTickers пользователя, передать в мапу по уникальному
-				update.Message.From.ID, сбросить слайс myTickers и по кругу с каждым.
-				Проблема ещё в том, что на 1 ключ мапы приходится 1 элемент и думал над чем-то вроде:
-				for i, v := range myTickers {
-				tickersMap[update.Message.From.ID] = tickersMap[update.Message.From.ID] + v
-				}, но получается каша
-				 */
+		case "addticker":
+			reply = addTicker(text, reply)
 
 
+		case "mytickers":				//тикеры пользователя
+			//reply = myTicker(reply)
 
-			case "mytickers":				//тикеры пользователя
-				reply = myTicker(reply)
+		case "delete":
+			deleteTicker(text, reply)
 
-			case "delete":
-				deleteTicker(text, reply)
+		case "help":
+			reply = ""
 
-			default:
-				reply = "Unknown command"
-			}
+		default:
+			reply = "Unknown command"
+		}
 
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
 		bot.Send(msg)
@@ -88,7 +80,7 @@ func start(reply string) string{
 	return reply
 }
 
-func myTicker(reply string) string{
+/*func myTicker(reply string) string{
 	var myTickersSlice []string
 	if myTickers != nil {
 		for _, l := range myTickers{
@@ -104,7 +96,7 @@ func myTicker(reply string) string{
 		reply = "Empty ticker list"
 	}
 	return reply
-}
+}*/
 
 func addTicker(text string, reply string) string{
 
@@ -112,14 +104,17 @@ func addTicker(text string, reply string) string{
 	for _, v := range words {
 		if v != "/addticker" {
 			myWord := v
-
 			for _, v := range tickersSlice {
 				if v != myWord { //если такого тикера не существует
 					reply = "Unknown command"
 
 				}else if v == myWord { //если такой тикер найден
-					//for range
-					myTickers = append(myTickers, myWord)
+					for _, t := range myTickers{
+						for _, l := range t.userSlices{
+							tickersMap[l] = append(tickersMap[l], t)
+						}
+					}
+					//myTickers = append(myTickers, myWord)
 
 					reply = "Ticker saved"
 					break
@@ -127,7 +122,7 @@ func addTicker(text string, reply string) string{
 			}
 		}
 	}
-	fmt.Println(myTickers)
+	fmt.Println(tickersMap)
 	return reply
 }
 
