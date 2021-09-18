@@ -116,7 +116,9 @@ func addTicker(text string, reply string) string{
 								tickersMap[l] = append(tickersMap[l], t)
 							}
 						}
-					}
+					/*кажется, на 114 должно быть не tickersMap[userID], а источник данных, откуда я беру данные и
+					затем заношу в tickersMap. А мой источник данных - простой слайс tickerSlice. Может в этом дело?
+					А myTickers, который был до этого вообще не должен был быть.*/
 
 
 					/*for _, t := range tickersMap[userID]{
