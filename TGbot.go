@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"github.com/Syfaro/telegram-bot-api"
 	"log"
+	"os/user"
+
 	"strings"
 )
 
 type Users struct {
 	userID string
-	userSlices []string
+	userSlice []string
 }
 
-var myTickers []*Users//массив тикеров пользователя, который пользователь может редактировать
+//var myTickers []*Users//массив тикеров пользователя, который пользователь может редактировать
 
 var tickersMap = make(map[string][]*Users) // мапа внутри которой я запоминаю слайсы с тикерами
 
@@ -61,7 +63,7 @@ func main(){
 			//reply = myTicker(reply)
 
 		case "delete":
-			deleteTicker(text, reply)
+			//deleteTicker(text, reply)
 
 		case "help":
 			reply = ""
@@ -109,11 +111,19 @@ func addTicker(text string, reply string) string{
 					reply = "Unknown command"
 
 				}else if v == myWord { //если такой тикер найден
-					for _, t := range myTickers{
-						for _, l := range t.userSlices{
-							tickersMap[l] = append(tickersMap[l], t)
+						for _, t := range tickersMap[userID]{
+							for _, l := range t.userSlice {
+								tickersMap[l] = append(tickersMap[l], t)
+							}
 						}
 					}
+
+
+					/*for _, t := range tickersMap[userID]{
+						for _, l := range t.userSlice{
+							tickersMap[l] = append(tickersMap[l], t)
+						}
+					}*/
 					//myTickers = append(myTickers, myWord)
 
 					reply = "Ticker saved"
@@ -126,7 +136,7 @@ func addTicker(text string, reply string) string{
 	return reply
 }
 
-func deleteTicker(text string, reply string){
+/*func deleteTicker(text string, reply string){
 	words := strings.Fields(text)
 	for _, t := range words {
 		if t != "/addticker" {
@@ -145,4 +155,4 @@ func deleteTicker(text string, reply string){
 		}
 	}
 	fmt.Println(myTickers)
-}
+}*/
