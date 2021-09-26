@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-//var tickersMap = make(map[int][]string) // мапа внутри которой я запоминаю слайсы с тикерами
+//var tickersMap = make(map[int][]string) //мапа внутри которой я запоминаю слайсы с тикерами
+//тесты(как писать и как сделать свой код теситируемыми
 
-var tickersMap = make(map[int]map[string]interface{})
-
+var tickersMap = make(map[int]map[string]interface{}) //избавиться от глоб(структура со своим методом addticker)
 
 var tickersSlice = []string{
 	"ONE",
@@ -51,10 +51,13 @@ func main(){
 			reply = start(reply)
 
 		case "addticker":
-
 			UsID := update.Message.From.ID
-			tickersMap[UsID] = make(map[string]interface{})
-			reply = addTicker(text, reply, UsID)
+			_, ok := tickersMap[UsID]
+			if !ok {
+				tickersMap[UsID] = make(map[string]interface{})
+			}
+			words := messageEnter(text)
+			reply = addTicker(text, reply, UsID, words)
 
 		case "mytickers":				//тикеры пользователя
 			//reply = myTicker(reply)
@@ -63,13 +66,11 @@ func main(){
 			//deleteTicker(text, reply)
 
 		case "help":
-			reply = ""
+			reply = ``
 
 		default:
 			reply = "Unknown command"
 		}
-
-
 
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
 		bot.Send(msg)
@@ -77,13 +78,13 @@ func main(){
 }
 
 func start(reply string) string{
-	reply = "Hello, i'm a telegram bot"
+	reply = "Hello. I am your personal investment assistant. To find out what I can do, write "
 	return reply
 }
-/*
-func myTicker(reply string, UsID int) string{
+
+/*func myTicker(reply string, UsID int) string{//создать массив и сделать функцию(отдельную) сортировку тикеров в мапе
 	var sls []string
-	for _, v := range tickersMap{
+	for _, v := range tickersMap[UsID]{
 		k := v
 		sls = append(sls, k)
 		return reply
@@ -111,44 +112,35 @@ func myTicker(reply string) string{
 	return reply
 }*/
 
-func addTicker(text string, reply string, UsID int) string{
-	//var sls []string
-	//var anMap = make(map[string]interface{})
-	words := strings.Fields(text)
-	for _, v := range words {
-		if v != "/addticker" {
-			myWord := v
+func addTicker(text string, reply string, UsID int, words []string) string{//сделать принятие сообщений отдельно от добавления
+	for _, s := range words{
 			for _, v := range tickersSlice {
-				if v != myWord { //если такого тикера не существует
+
+				if v != s { //если такого тикера не существует
 					reply = "Unknown command"
 
-				}else if v == myWord { //если такой тикер найден
-					/*sls = append(sls, myWord)
-					s := cap(sls)
-					//dnd := tickersMap[UsID]
-					for i, g := range sls {
-						if i != s{
-						anMap[g] = nil
-						}
-					}
-					tickersMap[UsID] = anMap
-					*/
-
-				tickersMap[UsID][myWord] = nil
-				//dnd := tickersMap[UsID][myWord]
-
-
-				reply = "Ticker saved"
-				break
+				}else if v == s { //если такой тикер найден
+					tickersMap[UsID][s] = nil
+					reply = "Ticker saved"
+					break
 				}
 			}
-		}else {
+	}
+		/*}else {
 			reply = "Ticker name not found"
 		}
-	}
+	}*/
 	fmt.Println(tickersMap)
 	return reply
 }
+
+func messageEnter(text string) []string{ //разбиваю ввод пользователя и удаляю
+	words := strings.Fields(text)		//"/addticker", оставляя только названия тикеров
+	words[0] = ""
+	return words
+}
+
+
 
 /*func deleteTicker(text string, reply string){
 	words := strings.Fields(text)
@@ -171,3 +163,4 @@ func addTicker(text string, reply string, UsID int) string{
 	fmt.Println(myTickers)
 }*/
 
+//написать тест, разбить на функции
