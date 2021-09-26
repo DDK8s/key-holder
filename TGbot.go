@@ -4,19 +4,13 @@ import (
 	"fmt"
 	"github.com/Syfaro/telegram-bot-api"
 	"log"
-	"os/user"
-
 	"strings"
 )
 
-type Users struct {
-	userID string
-	userSlice []string
-}
+//var tickersMap = make(map[int][]string) // мапа внутри которой я запоминаю слайсы с тикерами
 
-//var myTickers []*Users//массив тикеров пользователя, который пользователь может редактировать
+var tickersMap = make(map[int]map[string]interface{})
 
-var tickersMap = make(map[string][]*Users) // мапа внутри которой я запоминаю слайсы с тикерами
 
 var tickersSlice = []string{
 	"ONE",
@@ -43,6 +37,7 @@ func main(){
 
 	// Обновления канала
 	for update := range updates {
+
 		text := update.Message.Text	//текст сообщения
 		var reply string	//ответ на сообщение
 		if update.Message == nil {
@@ -56,8 +51,10 @@ func main(){
 			reply = start(reply)
 
 		case "addticker":
-			reply = addTicker(text, reply)
 
+			UsID := update.Message.From.ID
+			tickersMap[UsID] = make(map[string]interface{})
+			reply = addTicker(text, reply, UsID)
 
 		case "mytickers":				//тикеры пользователя
 			//reply = myTicker(reply)
@@ -72,6 +69,8 @@ func main(){
 			reply = "Unknown command"
 		}
 
+
+
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
 		bot.Send(msg)
 	}
@@ -81,8 +80,20 @@ func start(reply string) string{
 	reply = "Hello, i'm a telegram bot"
 	return reply
 }
+/*
+func myTicker(reply string, UsID int) string{
+	var sls []string
+	for _, v := range tickersMap{
+		k := v
+		sls = append(sls, k)
+		return reply
 
-/*func myTicker(reply string) string{
+	}
+	return reply
+}*/
+
+/*
+func myTicker(reply string) string{
 	var myTickersSlice []string
 	if myTickers != nil {
 		for _, l := range myTickers{
@@ -100,8 +111,9 @@ func start(reply string) string{
 	return reply
 }*/
 
-func addTicker(text string, reply string) string{
-
+func addTicker(text string, reply string, UsID int) string{
+	//var sls []string
+	//var anMap = make(map[string]interface{})
 	words := strings.Fields(text)
 	for _, v := range words {
 		if v != "/addticker" {
@@ -111,27 +123,27 @@ func addTicker(text string, reply string) string{
 					reply = "Unknown command"
 
 				}else if v == myWord { //если такой тикер найден
-						for _, t := range tickersMap[userID]{
-							for _, l := range t.userSlice {
-								tickersMap[l] = append(tickersMap[l], t)
-							}
+					/*sls = append(sls, myWord)
+					s := cap(sls)
+					//dnd := tickersMap[UsID]
+					for i, g := range sls {
+						if i != s{
+						anMap[g] = nil
 						}
-					/*кажется, на 114 должно быть не tickersMap[userID], а источник данных, откуда я беру данные и
-					затем заношу в tickersMap. А мой источник данных - простой слайс tickerSlice. Может в этом дело?
-					А myTickers, который был до этого вообще не должен был быть.*/
+					}
+					tickersMap[UsID] = anMap
+					*/
+
+				tickersMap[UsID][myWord] = nil
+				//dnd := tickersMap[UsID][myWord]
 
 
-					/*for _, t := range tickersMap[userID]{
-						for _, l := range t.userSlice{
-							tickersMap[l] = append(tickersMap[l], t)
-						}
-					}*/
-					//myTickers = append(myTickers, myWord)
-
-					reply = "Ticker saved"
-					break
+				reply = "Ticker saved"
+				break
 				}
 			}
+		}else {
+			reply = "Ticker name not found"
 		}
 	}
 	fmt.Println(tickersMap)
@@ -158,3 +170,4 @@ func addTicker(text string, reply string) string{
 	}
 	fmt.Println(myTickers)
 }*/
+
