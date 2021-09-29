@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 	"github.com/Syfaro/telegram-bot-api"
-	"go/types"
 	"log"
 	"strings"
 )
 
-var myTickers []string//массив тикеров пользователя, который пользователь может редактировать
+//тесты(как писать и как сделать свой код теситируемыми
 
-var tickersMap = make(map[int]types.Slice) // мапа внутри которой я запоминаю слайсы с тикерами
+//var tickersMap = make(map[int]map[string]interface{}) //избавиться от глоб(структура со своим методом addticker)
 
 var tickersSlice = []string{
 	"ONE",
@@ -20,7 +19,7 @@ var tickersSlice = []string{
 }
 
 func main(){
-
+	var tickersMap = make(map[int]map[string]interface{})
 	bot, err := tgbotapi.NewBotAPI("1935733666:AAGj-bDMkUR6DZIqwiNjhDJCbomieEkVZYo")
 	if err != nil {
 		log.Panic(err)
@@ -37,46 +36,43 @@ func main(){
 
 	// Обновления канала
 	for update := range updates {
-		text := update.Message.Text	//текст сообщения
-		var reply string	//ответ на сообщение
+
+		text := update.Message.Text
+		var reply string
+
 		if update.Message == nil {
 			continue
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-
+		UsID := update.Message.From.ID
 
 		switch update.Message.Command() {
-			case "start":
-				reply = start(reply)
+		case "start":
+			reply = start(reply)
 
-			case "addticker":
-
-				reply = addTicker(text, reply)
-				tickersMap[update.Message.From.ID] = myTickers// я не реализовал это внутри функции,
-				myTickers = nil								 //т.к. не могу передать update.Message.From.ID в неё
-				
-				fmt.Println(tickersMap)//просто для удобства проверки содержимого
-				
-				
-				/*идея заключается в том, чтобы запомнить тикеры myTickers пользователя, передать в мапу по уникальному
-				update.Message.From.ID, сбросить слайс myTickers и по кругу с каждым.
-				Проблема ещё в том, что на 1 ключ мапы приходится 1 элемент и думал над чем-то вроде:
-				for i, v := range myTickers {
-				tickersMap[update.Message.From.ID] = tickersMap[update.Message.From.ID] + v
-				}, но получается каша
-				 */
-
-
-
-			case "mytickers":				//тикеры пользователя
-				reply = myTicker(reply)
-
-			case "delete":
-				deleteTicker(text, reply)
-
-			default:
-				reply = "Unknown command"
+		case "addticker":
+			_, ok := tickersMap[UsID]
+			if !ok {
+				tickersMap[UsID] = make(map[string]interface{})
 			}
+			words := tickerNamePulling(text)
+			reply = addTicker(reply, UsID, words, tickersMap)
+
+		case "mytickers":				//тикеры пользователя
+			reply = userTickers(reply, UsID, tickersMap)
+
+		case "delete":
+			words := tickerNamePulling(text)
+			deleteTicker(reply, UsID, words, tickersMap)
+
+		case "help":
+			reply = `◽Use the command "/addticker [ticker name]" to add a new ticker to your list of tickers.
+◽Use the command "/delete [ticker name]" to to remove the ticker from your list of tickers.
+◽Use the command "/mytickers" to see a list of your tickers.`
+
+		default:
+			reply = "Unknown command"
+		}
 
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
 		bot.Send(msg)
@@ -84,70 +80,53 @@ func main(){
 }
 
 func start(reply string) string{
-	reply = "Hello, i'm a telegram bot"
+	reply = "Hello. I am your personal investment assistant. To find out what I can do, write \"/help\"."
 	return reply
 }
 
-func myTicker(reply string) string{
-	var myTickersSlice []string
-	if myTickers != nil {
-		for _, l := range myTickers{
-			myTickersSlice = append(myTickersSlice, l)
-			s := len(myTickersSlice)
-			for i, _ := range myTickersSlice{
-				if i != s {
-					reply = strings.Join(myTickersSlice, " ")
-				}
-			}
-		}
-	}else{
-		reply = "Empty ticker list"
+func userTickers(reply string, UsID int, tickersMap map[int]map[string]interface{}) string {//создать массив и сделать функцию(отдельную) сортировку тикеров в мапе
+	for i := range tickersMap[UsID] {
+		reply = reply + i + " "
 	}
 	return reply
 }
 
-func addTicker(text string, reply string) string{
+func tickerNamePulling(text string) []string{ //разбиваю ввод пользователя и удаляю
+	words := strings.Fields(text)		   	//"/addticker", оставляя только названия тикеров
+	words = words[1:]
+	return words
+}
 
-	words := strings.Fields(text)
-	for _, v := range words {
-		if v != "/addticker" {
-			myWord := v
+func addTicker(reply string, UsID int, words []string, tickersMap map[int]map[string]interface{}) string{
+	for _, s := range words{
+		for _, v := range tickersSlice {
+			if v != s { //если такого тикера не существует
+				reply = "Unknown command"
 
-			for _, v := range tickersSlice {
-				if v != myWord { //если такого тикера не существует
-					reply = "Unknown command"
-
-				}else if v == myWord { //если такой тикер найден
-					//for range
-					myTickers = append(myTickers, myWord)
-
-					reply = "Ticker saved"
-					break
-				}
+			}else if v == s { //если такой тикер найден
+				tickersMap[UsID][s] = nil
+				reply = "Ticker saved"
+				break
 			}
 		}
 	}
-	fmt.Println(myTickers)
+	fmt.Println(tickersMap)
 	return reply
 }
 
-func deleteTicker(text string, reply string){
-	words := strings.Fields(text)
-	for _, t := range words {
-		if t != "/addticker" {
-			myWord := t
+func deleteTicker(reply string, UsID int, words []string, tickersMap map[int]map[string]interface{}) string {
+	for _, s := range words {
+		for range tickersMap[UsID]{
+			_, ok := tickersMap[UsID][s]
+			if ok {
+				delete(tickersMap[UsID], s)
 
-			for i, v := range tickersSlice {
-				if v != myWord { //если такого тикера не существует
-					reply = "Ticker not found"
-
-				} else if v == myWord { //если такой тикер найден
-					myTickers = append(myTickers[:i], myTickers[i+1])
-					reply = "Ticker deleted"
-					break
-				}
 			}
 		}
 	}
-	fmt.Println(myTickers)
+	fmt.Println(tickersMap[UsID])
+	reply = "Ticker was deleted"
+	return reply
 }
+
+//написать тест, разбить на функции
