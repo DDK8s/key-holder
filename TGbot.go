@@ -1,25 +1,44 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/Syfaro/telegram-bot-api"
+	"github.com/xlab/closer"
+
+	//"github.com/xlab/closer"
+	"io/ioutil"
 	"log"
+	"os"
+	"os/signal"
+	"sort"
 	"strings"
+	"sync"
+	"syscall"
+	"time"
 )
-
-//тесты(как писать и как сделать свой код теситируемыми
-
-//var tickersMap = make(map[int]map[string]interface{}) //избавиться от глоб(структура со своим методом addticker)
 
 var tickersSlice = []string{
 	"ONE",
 	"TWO",
 	"THREE",
 	"FOUR",
+	"FIVE",
+	"SIX",
+	"SEVEN",
+	"EIGHT",
+	"NINE",
+	"TEN",
 }
 
 func main(){
-	var tickersMap = make(map[int]map[string]interface{})
+	var a tickersInt = &tickersStr{}
+	//var tickersMap = make(map[int]map[string]interface{})
+	var tickersMap tickersStr //попытка обращения к мапе внутри структуры
+
+
+
 	bot, err := tgbotapi.NewBotAPI("1935733666:AAGj-bDMkUR6DZIqwiNjhDJCbomieEkVZYo")
 	if err != nil {
 		log.Panic(err)
@@ -29,12 +48,13 @@ func main(){
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates, err := bot.GetUpdatesChan(u)
-
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// Обновления канала
+	diskReading(tickersMap)
+	go autoSaving(tickersMap)
+
 	for update := range updates {
 
 		text := update.Message.Text
@@ -46,66 +66,149 @@ func main(){
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 		UsID := update.Message.From.ID
 
+
+
 		switch update.Message.Command() {
 		case "start":
 			reply = start(reply)
 
 		case "addticker":
-			_, ok := tickersMap[UsID]
-			if !ok {
-				tickersMap[UsID] = make(map[string]interface{})
-			}
-			words := tickerNamePulling(text)
-			reply = addTicker(reply, UsID, words, tickersMap)
+			mapValueChecker(tickersMap, UsID)
+			words := fetchTickerName(text)
+			reply = a.addTickers(reply, UsID, words, tickersMap)
 
-		case "mytickers":				//тикеры пользователя
-			reply = userTickers(reply, UsID, tickersMap)
+
+		case "mytickers":
+			tickers := sorting(tickersMap, UsID)
+			reply = a.userTickers(reply, tickers)
 
 		case "delete":
-			words := tickerNamePulling(text)
-			deleteTicker(reply, UsID, words, tickersMap)
+			words := fetchTickerName(text)
+			reply = a.deleteTicker(reply, UsID, words, tickersMap)
 
 		case "help":
-			reply = `◽Use the command "/addticker [ticker name]" to add a new ticker to your list of tickers.
-◽Use the command "/delete [ticker name]" to to remove the ticker from your list of tickers.
-◽Use the command "/mytickers" to see a list of your tickers.`
+			reply = help(reply)
+
+		case "botoff":
+			if UsID == 744515526 {
+				a.dataSaving(tickersMap)
+				reply = "Will see soon, Creator"
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+				bot.Send(msg)
+				closer.Close()
+			} else {
+				reply = "You're not my Creator"
+			}
 
 		default:
-			reply = "Unknown command"
+			reply = "Unknown command. Write \"/help\" to see the list of commands."
 		}
 
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
 		bot.Send(msg)
+
 	}
+	ctx, stop := signal.NotifyContext(context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	defer stop()
+
+	select {
+	case <-time.After(10 * time.Second):
+		fmt.Println("missed signal")
+	case <-ctx.Done():
+		stop()
+		fmt.Println("signal received")
+	}
+
 }
+
+
+//________________________________Функции____________________________________________________________________________
+
 
 func start(reply string) string{
 	reply = "Hello. I am your personal investment assistant. To find out what I can do, write \"/help\"."
 	return reply
 }
 
-func userTickers(reply string, UsID int, tickersMap map[int]map[string]interface{}) string {//создать массив и сделать функцию(отдельную) сортировку тикеров в мапе
-	for i := range tickersMap[UsID] {
-		reply = reply + i + " "
-	}
+func help(reply string) string{
+	reply = `◽Use the command "/addticker [ticker name]" to add a new ticker to your list of tickers.
+◽Use the command "/delete [ticker name]" to remove the ticker from your list of tickers.
+◽Use the command "/mytickers" to see a list of your tickers.`
 	return reply
 }
 
-func tickerNamePulling(text string) []string{ //разбиваю ввод пользователя и удаляю
-	words := strings.Fields(text)		   	//"/addticker", оставляя только названия тикеров
+func sorting(tickersMap map[int]map[string]interface{}, UsID int) []string{
+	tickers := make([]string, 0, len(tickersMap[UsID]))
+	for v := range tickersMap[UsID] {
+		tickers = append(tickers, v)
+	}
+	sort.Strings(tickers)
+	return tickers
+}
+
+func fetchTickerName(text string) []string{
+	words := strings.Fields(text)
 	words = words[1:]
 	return words
 }
 
-func addTicker(reply string, UsID int, words []string, tickersMap map[int]map[string]interface{}) string{
+func writeInJson(tickersMap map[int]map[string]interface{}){
+
+	file, _ := json.MarshalIndent(tickersMap, "", " ")
+	_ = ioutil.WriteFile("test.json", file, 0644)
+
+}
+
+func diskReading(tickersMap map[int]map[string]interface{}){
+	file, _ := ioutil.ReadFile("test.json")
+	json.Unmarshal(file, &tickersMap)
+}
+
+func autoSaving(tickersMap map[int]map[string]interface{}) {
+	if true {
+		time.Sleep(5 * time.Minute)
+		writeInJson(tickersMap)
+	}
+
+}
+
+func mapValueChecker(tickersMap map[int]map[string]interface{}, UsID int){
+	_, ok := tickersMap[UsID]
+	if !ok {
+		tickersMap[UsID] = make(map[string]interface{})
+	}
+}
+
+//_____________________________Структуры_____________________________________________________________________________
+
+
+type tickersInt interface {
+	addTickers(string, int, []string, map[int]map[string]interface{}) string
+	deleteTicker(string, int, []string, map[int]map[string]interface{}) string
+	userTickers(string, []string) string
+	dataSaving(map[int]map[string]interface{})
+}
+
+type tickersStr struct {
+	tickersMap map[int]map[string]interface{}
+}
+
+
+//_____________________________Методы________________________________________________________________________________
+
+
+func (a *tickersStr) addTickers(reply string, UsID int, words []string, tickersMap map[int]map[string]interface{}) string{
 	for _, s := range words{
 		for _, v := range tickersSlice {
 			if v != s { //если такого тикера не существует
-				reply = "Unknown command"
+				reply = "Unknown ticker."
 
 			}else if v == s { //если такой тикер найден
 				tickersMap[UsID][s] = nil
-				reply = "Ticker saved"
+				reply = "Ticker saved."
 				break
 			}
 		}
@@ -114,19 +217,32 @@ func addTicker(reply string, UsID int, words []string, tickersMap map[int]map[st
 	return reply
 }
 
-func deleteTicker(reply string, UsID int, words []string, tickersMap map[int]map[string]interface{}) string {
+func (a *tickersStr) deleteTicker(reply string, UsID int, words []string, tickersMap map[int]map[string]interface{}) string {
 	for _, s := range words {
 		for range tickersMap[UsID]{
 			_, ok := tickersMap[UsID][s]
 			if ok {
 				delete(tickersMap[UsID], s)
-
 			}
 		}
 	}
 	fmt.Println(tickersMap[UsID])
-	reply = "Ticker was deleted"
+	reply = "Ticker was deleted."
 	return reply
 }
 
-//написать тест, разбить на функции
+func (a *tickersStr)userTickers(reply string, tickers []string) string {
+	if tickers == nil {
+		reply = "Empty ticker list"
+	}
+	for _, v := range tickers{
+		reply = reply + v + " "
+	}
+	return reply
+}
+
+func (a *tickersStr) dataSaving(tickersMap map[int]map[string]interface{}) {
+	go writeInJson(tickersMap)
+	var wg sync.WaitGroup
+	wg.Wait()
+}
