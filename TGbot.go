@@ -34,11 +34,7 @@ var tickersSlice = []string{
 
 func main(){
 	var a tickersInt = &tickersStr{}
-	//var tickersMap = make(map[int]map[string]interface{})
-	var tickersMap tickersStr //попытка обращения к мапе внутри структуры
-
-
-
+	var tickersMap = make(map[int]map[string]interface{})
 	bot, err := tgbotapi.NewBotAPI("1935733666:AAGj-bDMkUR6DZIqwiNjhDJCbomieEkVZYo")
 	if err != nil {
 		log.Panic(err)
@@ -52,8 +48,8 @@ func main(){
 		log.Panic(err)
 	}
 
-	diskReading(tickersMap)
-	go autoSaving(tickersMap)
+	a.diskReading(tickersMap)
+	go a.autoSaving(tickersMap)
 
 	for update := range updates {
 
@@ -70,24 +66,24 @@ func main(){
 
 		switch update.Message.Command() {
 		case "start":
-			reply = start(reply)
+			reply = a.start(reply)
 
 		case "addticker":
-			mapValueChecker(tickersMap, UsID)
-			words := fetchTickerName(text)
+			a.mapValueChecker(tickersMap, UsID)
+			words := a.fetchTickerName(text)
 			reply = a.addTickers(reply, UsID, words, tickersMap)
 
 
 		case "mytickers":
-			tickers := sorting(tickersMap, UsID)
+			tickers := a.sorting(tickersMap, UsID)
 			reply = a.userTickers(reply, tickers)
 
 		case "delete":
-			words := fetchTickerName(text)
+			words := a.fetchTickerName(text)
 			reply = a.deleteTicker(reply, UsID, words, tickersMap)
 
 		case "help":
-			reply = help(reply)
+			reply = a.help(reply)
 
 		case "botoff":
 			if UsID == 744515526 {
@@ -108,6 +104,7 @@ func main(){
 		bot.Send(msg)
 
 	}
+	//обработка сигналов завершения работы
 	ctx, stop := signal.NotifyContext(context.Background(),
 		os.Interrupt,
 		syscall.SIGTERM,
@@ -118,6 +115,7 @@ func main(){
 	case <-time.After(10 * time.Second):
 		fmt.Println("missed signal")
 	case <-ctx.Done():
+		a.writeInJson
 		stop()
 		fmt.Println("signal received")
 	}
@@ -125,71 +123,22 @@ func main(){
 }
 
 
-//________________________________Функции____________________________________________________________________________
-
-
-func start(reply string) string{
-	reply = "Hello. I am your personal investment assistant. To find out what I can do, write \"/help\"."
-	return reply
-}
-
-func help(reply string) string{
-	reply = `◽Use the command "/addticker [ticker name]" to add a new ticker to your list of tickers.
-◽Use the command "/delete [ticker name]" to remove the ticker from your list of tickers.
-◽Use the command "/mytickers" to see a list of your tickers.`
-	return reply
-}
-
-func sorting(tickersMap map[int]map[string]interface{}, UsID int) []string{
-	tickers := make([]string, 0, len(tickersMap[UsID]))
-	for v := range tickersMap[UsID] {
-		tickers = append(tickers, v)
-	}
-	sort.Strings(tickers)
-	return tickers
-}
-
-func fetchTickerName(text string) []string{
-	words := strings.Fields(text)
-	words = words[1:]
-	return words
-}
-
-func writeInJson(tickersMap map[int]map[string]interface{}){
-
-	file, _ := json.MarshalIndent(tickersMap, "", " ")
-	_ = ioutil.WriteFile("test.json", file, 0644)
-
-}
-
-func diskReading(tickersMap map[int]map[string]interface{}){
-	file, _ := ioutil.ReadFile("test.json")
-	json.Unmarshal(file, &tickersMap)
-}
-
-func autoSaving(tickersMap map[int]map[string]interface{}) {
-	if true {
-		time.Sleep(5 * time.Minute)
-		writeInJson(tickersMap)
-	}
-
-}
-
-func mapValueChecker(tickersMap map[int]map[string]interface{}, UsID int){
-	_, ok := tickersMap[UsID]
-	if !ok {
-		tickersMap[UsID] = make(map[string]interface{})
-	}
-}
-
 //_____________________________Структуры_____________________________________________________________________________
 
 
 type tickersInt interface {
+	help(string) string
+	start(string) string
+	fetchTickerName(string) []string
+	userTickers(string, []string) string
+	autoSaving(map[int]map[string]interface{})
+	writeInJson(map[int]map[string]interface{})
+	diskReading(map[int]map[string]interface{})
+	dataSaving(map[int]map[string]interface{})
+	mapValueChecker(map[int]map[string]interface{}, int)
+	sorting(map[int]map[string]interface{}, int) []string
 	addTickers(string, int, []string, map[int]map[string]interface{}) string
 	deleteTicker(string, int, []string, map[int]map[string]interface{}) string
-	userTickers(string, []string) string
-	dataSaving(map[int]map[string]interface{})
 }
 
 type tickersStr struct {
@@ -199,6 +148,18 @@ type tickersStr struct {
 
 //_____________________________Методы________________________________________________________________________________
 
+
+func (a *tickersStr) start(reply string) string{
+	reply = "Hello. I am your personal investment assistant. To find out what I can do, write \"/help\"."
+	return reply
+}
+
+func (a *tickersStr) help(reply string) string{
+	reply = `◽Use the command "/addticker [ticker name]" to add a new ticker to your list of tickers.
+◽Use the command "/delete [ticker name]" to remove the ticker from your list of tickers.
+◽Use the command "/mytickers" to see a list of your tickers.`
+	return reply
+}
 
 func (a *tickersStr) addTickers(reply string, UsID int, words []string, tickersMap map[int]map[string]interface{}) string{
 	for _, s := range words{
@@ -231,7 +192,49 @@ func (a *tickersStr) deleteTicker(reply string, UsID int, words []string, ticker
 	return reply
 }
 
-func (a *tickersStr)userTickers(reply string, tickers []string) string {
+func (a *tickersStr) sorting(tickersMap map[int]map[string]interface{}, UsID int) []string{
+	tickers := make([]string, 0, len(tickersMap[UsID]))
+	for v := range tickersMap[UsID] {
+		tickers = append(tickers, v)
+	}
+	sort.Strings(tickers)
+	return tickers
+}
+
+func (a *tickersStr) fetchTickerName(text string) []string{
+	words := strings.Fields(text)
+	words = words[1:]
+	return words
+}
+
+func (a *tickersStr) writeInJson(tickersMap map[int]map[string]interface{}){
+
+	file, _ := json.MarshalIndent(tickersMap, "", " ")
+	_ = ioutil.WriteFile("test.json", file, 0644)
+
+}
+
+func (a *tickersStr) diskReading(tickersMap map[int]map[string]interface{}){
+	file, _ := ioutil.ReadFile("test.json")
+	json.Unmarshal(file, &tickersMap)
+}
+
+func (a *tickersStr) autoSaving(tickersMap map[int]map[string]interface{}) {
+	if true {
+		time.Sleep(5 * time.Minute)
+		a.writeInJson(tickersMap)
+	}
+
+}
+
+func (a *tickersStr) mapValueChecker(tickersMap map[int]map[string]interface{}, UsID int){
+	_, ok := tickersMap[UsID]
+	if !ok {
+		tickersMap[UsID] = make(map[string]interface{})
+	}
+}
+
+func (a *tickersStr) userTickers(reply string, tickers []string) string {
 	if tickers == nil {
 		reply = "Empty ticker list"
 	}
@@ -242,7 +245,13 @@ func (a *tickersStr)userTickers(reply string, tickers []string) string {
 }
 
 func (a *tickersStr) dataSaving(tickersMap map[int]map[string]interface{}) {
-	go writeInJson(tickersMap)
+	go a.writeInJson(tickersMap)
 	var wg sync.WaitGroup
 	wg.Wait()
 }
+
+//___________________________________________________________________________________________________________________
+//___________________________________________________________________________________________________________________
+
+//шейделер
+
