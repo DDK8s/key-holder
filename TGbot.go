@@ -35,7 +35,7 @@ var tickersSlice = []string{
 func main(){
 	var a tickersInt = &tickersStr{}
 	var tickersMap = make(map[int]map[string]interface{})
-	bot, err := tgbotapi.NewBotAPI("1935733666:AAGj-bDMkUR6DZIqwiNjhDJCbomieEkVZYo")
+	bot, err := tgbotapi.NewBotAPI("None")
 	if err != nil {
 		log.Panic(err)
 	}
