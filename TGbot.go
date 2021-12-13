@@ -1,28 +1,25 @@
 package main
 
 import (
-
 	"awesomeProject/5/Storage"
 	"flag"
 	sdk "github.com/TinkoffCreditSystems/invest-openapi-go-sdk"
-
 	//"awesomeProject/5/Buisnes"
 	"context"
-	"encoding/json"
 	"fmt"
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"sort"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 )
 
-var token = flag.String("token", "", "t.-6-fOCXjCkzJGhM2QLtsOvysQdLGiuWUUq5T0VJCVJkYpEbg1N8PpPHSdttnhXeKPeKSG2j1byMb-i4rbfg6Kg")
+
+var token = flag.String("token", "", "NONE")
+
 var tickersSlice = []string{
 	"ONE",
 	"TWO",
@@ -38,9 +35,13 @@ var tickersSlice = []string{
 
 func main() {
 
-	var a tickersInt = &tickersStr{}
+	var sls Storage.TickersInter = &Storage.TickersStr{}
+	
+	//var a tickersInt = &tickersStr{}
 	var tickersVault = make(map[int]map[string]interface{})
-	bot, err := tgbotapi.NewBotAPI("1935733666:AAGh55XNSeps0LYMpbAiAM-zKsZT-EQEFKc")
+
+
+	bot, err := tgbotapi.NewBotAPI("NONE")
 	if err != nil {
 		log.Panic(err)
 	}
@@ -56,7 +57,7 @@ func main() {
 	Storage.ReadFromJson(tickersVault)
 	go Storage.AutoSave(tickersVault)
 
-	//поместил сюда L113-L126, ловлю сигнал остановки сразу же
+	//поместил сюда L114-L126
 
 	for update := range updates {
 
@@ -71,24 +72,24 @@ func main() {
 
 		switch update.Message.Command() {
 		case "start":
-			reply = a.start(reply)
+			reply = start(reply)
 
 		case "addticker":
 			Storage.CheckingMapInitialization(tickersVault, UsID)
-			words := a.fetchTickerName(text)
-			reply = a.addTickers(reply, UsID, words, tickersVault)
+			words := fetchTickerName(text)
+			reply = addTickers(reply, UsID, words, tickersVault)
 
 		case "mytickers":
-			tickers := a.sorting(tickersVault, UsID)
+			tickers := sorting(tickersVault, UsID)
 
 			reply = Storage.ReturnUserTickerList(reply,tickers)
 
 		case "delete":
-			words := a.fetchTickerName(text)
-			reply = a.deleteTicker(reply, UsID, words, tickersVault)
+			words := fetchTickerName(text)
+			reply = deleteTicker(reply, UsID, words, tickersVault)
 
 		case "help":
-			reply = a.help(reply)
+			reply = help(reply)
 
 		case "botoff":
 			if UsID == 744515526 {
@@ -119,13 +120,13 @@ func main() {
 		fmt.Println("missed signal")
 		//документация контекста
 	case <-ctx.Done():
-		Storage.WriteInJson(tickersVault)
+		Storage.writeInJson(tickersVault)
 		fmt.Println("signal received")
 	}
 }
 
 //_____________________________Структуры_____________________________________________________________________________
-
+/*
 type tickersInt interface {
 	help(string) string
 	start(string) string
@@ -134,35 +135,31 @@ type tickersInt interface {
 	sorting(map[int]map[string]interface{}, int) []string
 	addTickers(string, int, []string, map[int]map[string]interface{}) string
 	deleteTicker(string, int, []string, map[int]map[string]interface{}) string
-}
-
-type tickersStr struct {
-	tickersVault map[int]map[string]interface{}
-}
-
+}*/
 
 //_____________________________Методы________________________________________________________________________________
 
 
-func (a *tickersStr) start(reply string) string {
+func start(reply string) string {
 	reply = "Hello. I am your personal investment assistant. To find out what I can do, write \"/help\"."
 	return reply
 }
 
-func (a *tickersStr) help(reply string) string {
+func help(reply string) string {
 	reply = `◽Use the command "/addticker [ticker name]" to add a new ticker to your list of tickers.
 ◽Use the command "/delete [ticker name]" to remove the ticker from your list of tickers.
 ◽Use the command "/mytickers" to see a list of your tickers.`
 	return reply
 }
 
-func (a *tickersStr) addTickers(reply string, UsID int, words []string, tickersVault map[int]map[string]interface{}) string {
+func addTickers(reply string, UsID int, words []string, tickersVault map[int]map[string]interface{}) string {
 	for _, s := range words {
 		for _, v := range tickersSlice {
 			if v != s { //если такого тикера не существует
 				reply = "Unknown ticker name " + s + "."
 
 			} else if v == s { //если такой тикер найден
+
 				tickersVault[UsID][s] = nil
 				reply = "Ticker " + s + " saved."
 				break
@@ -173,7 +170,7 @@ func (a *tickersStr) addTickers(reply string, UsID int, words []string, tickersV
 	return reply
 }
 
-func (a *tickersStr) deleteTicker(reply string, UsID int, words []string, tickersVault map[int]map[string]interface{}) string {
+func deleteTicker(reply string, UsID int, words []string, tickersVault map[int]map[string]interface{}) string {
 	for _, s := range words {
 		_, ok := tickersVault[UsID][s]
 		if ok {
@@ -185,9 +182,7 @@ func (a *tickersStr) deleteTicker(reply string, UsID int, words []string, ticker
 	return reply
 }
 
-//попробовать отсортировать в мапе
-//мапы не имеют методов сортировки
-func (a *tickersStr) sorting(tickersVault map[int]map[string]interface{}, UsID int) []string {
+func sorting(tickersVault map[int]map[string]interface{}, UsID int) []string {
 	tickers := make([]string, 0, len(tickersVault[UsID]))
 	for v := range tickersVault[UsID] {
 		tickers = append(tickers, v)
@@ -196,81 +191,39 @@ func (a *tickersStr) sorting(tickersVault map[int]map[string]interface{}, UsID i
 	return tickers
 }
 
-func (a *tickersStr) fetchTickerName(text string) []string {
+func fetchTickerName(text string) []string {
 	words := strings.Fields(text)
 	words = words[1:]
 	return words
 }
 
-//посмотрел отличие Marshal от MarshalIndent, подумал,
-//что Indent лушче по читабельности - функциональной разницы нет
-//обязательно на проверку с dataSave
-func (a *tickersStr) writeInJson(tickersVault map[int]map[string]interface{}) {
-	file, err := json.MarshalIndent(tickersVault, "", " ")
-	if err != nil {
-		log.Panic(err)
-	}
-	_ = ioutil.WriteFile("test.json", file, 0644)
-	//defer wg.Done()
+func AddCandleByTicker(reply string, UsID int, words []string, tickersVault map[int]map[string]interface{}, ctx context.Context) string {
 
-}
-
-func (a *tickersStr) ReadFromJson(tickersVault map[int]map[string]interface{}) {
-	file, err := ioutil.ReadFile("test.json")
-	if err != nil {
-		log.Panic(err)
-	}
-	json.Unmarshal(file, &tickersVault)
-}
-
-func (a *tickersStr) autoSave(tickersVault map[int]map[string]interface{}) {
-	for {
-		time.Sleep(1 * time.Minute)
-		a.writeInJson(tickersVault)
-	}
-}
-
-func (a *tickersStr) ReturnUserTickerList(reply string, tickers []string) string {
-	if tickers == nil {
-		reply = "Empty ticker list"
-	}
-	for _, v := range tickers {
-		reply = reply + v + " "
-	}
-	return reply
-}
-
-func (a *tickersStr) dataSave(tickersVault map[int]map[string]interface{}) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go a.writeInJson(tickersVault)
-	wg.Wait()
-}
-
-//в разработке
-func AddCandleByTicker(reply string, UsID int, words []string, tickersVault map[int]map[string]interface{}) string {
-
-	
-
-
+	client := sdk.NewRestClient(*token)
 
 	for _, s := range words {
-		for _, v := range tickersSlice {
+		for _, v := range tickersSlice {//вместо tikcerSlice - []sdk.Instruments
 			if v != s { //если такого тикера не существует
 				reply = "Unknown ticker name " + s + "."
 
 			} else if v == s { //если такой тикер найден
 
-				client := sdk.NewRestClient(*token)
-
-
-
-				candles, err := client.Candles(nil, time.Now().AddDate(0, 0, -20), time.Now(), sdk.CandleInterval1Month, s)
+				instruments, err := client.InstrumentByTicker(ctx, s)
 				if err != nil {
 					log.Fatalln(err)
 				}
+				log.Printf("%+v\n", instruments)//нулевой или нет, и взять нужный и хранить в структуре отдельной
+
+				instrument, err := client.InstrumentByFIGI(ctx, s)
+				if err != nil {
+					log.Fatalln(err)
+				}
+				log.Printf("%+v\n", instrument)
 
 
+				/*	Что за cancel?
+					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()*/
 				tickersVault[UsID][s] = nil
 				reply = "Ticker " + s + " saved."
 				break
@@ -280,21 +233,3 @@ func AddCandleByTicker(reply string, UsID int, words []string, tickersVault map[
 	fmt.Println(tickersVault)
 	return reply
 }
-
-func checkCandlesExistence (figiName string) []{
-
-	// получение часовых свечей за последние 20 дней по инструменту s
-	client := sdk.NewRestClient(*token)
-
-	figiName :=
-
-	candles, err := client.Candles(nil, time.Now().AddDate(0, 0, -20), time.Now(), sdk.CandleInterval1Month, figiName)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	figis := client.Candles()
-}
-
-
-//___________________________________________________________________________________________________________________
-//___________________________________________________________________________________________________________________
