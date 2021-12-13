@@ -1,7 +1,6 @@
 package Storage
 
 import (
-
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -9,7 +8,7 @@ import (
 	"time"
 )
 
-func WriteInJson(tickersVault map[int]map[string]interface{}) {
+func (d *TickersStr) writeInJson(tickersVault map[int]map[string]interface{}) {
 	file, err := json.MarshalIndent(tickersVault, "", " ")
 	if err != nil {
 		log.Panic(err)
@@ -19,7 +18,7 @@ func WriteInJson(tickersVault map[int]map[string]interface{}) {
 
 }
 
-func ReadFromJson(tickersVault map[int]map[string]interface{}) {
+func (d *TickersStr) readFromJson(tickersVault map[int]map[string]interface{}) {
 	file, err := ioutil.ReadFile("test.json")
 	if err != nil {
 		log.Panic(err)
@@ -27,21 +26,21 @@ func ReadFromJson(tickersVault map[int]map[string]interface{}) {
 	json.Unmarshal(file, &tickersVault)
 }
 
-func AutoSave(tickersVault map[int]map[string]interface{}) {
+func (d *TickersStr) autoSave(tickersVault map[int]map[string]interface{}) {
 	for {
 		time.Sleep(1 * time.Minute)
-		WriteInJson(tickersVault)
+		d.writeInJson(tickersVault)
 	}
 }
 
-func CheckingMapInitialization(tickersVault map[int]map[string]interface{}, UsID int) {
+func (d *TickersStr) checkingMapInitialization(tickersVault map[int]map[string]interface{}, UsID int) {
 	_, ok := tickersVault[UsID]
 	if !ok {
 		tickersVault[UsID] = make(map[string]interface{})
 	}
 }
 
-func ReturnUserTickerList(reply string, tickers []string) string {
+func (d *TickersStr) returnUserTickerList(reply string, tickers []string) string {
 	if tickers == nil {
 		reply = "Empty ticker list"
 	}
@@ -51,10 +50,23 @@ func ReturnUserTickerList(reply string, tickers []string) string {
 	return reply
 }
 
-func DataSave(tickersVault map[int]map[string]interface{}) {
+func (d *TickersStr) dataSave(tickersVault map[int]map[string]interface{}) {
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go WriteInJson(tickersVault)
+	go d.writeInJson(tickersVault)
 	wg.Wait()
+
 }
 
+type TickersInter interface {
+	writeInJson(map[int]map[string]interface{})
+	readFromJson(map[int]map[string]interface{})
+	autoSave(map[int]map[string]interface{})
+	checkingMapInitialization(map[int]map[string]interface{}, int)
+	returnUserTickerList(string, []string) string
+	dataSave(map[int]map[string]interface{})
+}
+
+type TickersStr struct {
+	tickersVault map[int]map[string]interface{}
+}
